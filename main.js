@@ -42,7 +42,7 @@ const createWindow = () => {
       appconfig.basepath = path.join(__dirname, '..', '..'); 
       appconfig.host = process.env.IPSERVER;    
       appconfig.port = process.env.PORT;  
-      appconfig.ver = process.env.VER;
+      appconfig.phienban = process.env.PHIENBAN;
       win.webContents.send('getBasePath', appconfig);
     })
 
