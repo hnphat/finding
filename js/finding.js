@@ -4,12 +4,18 @@ let phienban = "";
 let isConnecting = false;
 let reconnect = 5000;
 let countreconnect = 5000; 
+let starting = 0;
 if (typeof(Storage) !== "undefined") {
     host = sessionStorage.host
     basepath = sessionStorage.basepath;
     phienban = sessionStorage.phienban;
 }
-$(document).ready(function() {    
+$(document).ready(function() { 
+    if (sessionStorage.production == 1) {
+        $("#loading").attr("src", basepath + "/assets/loading.gif?rand=" + Math.random());
+    } else {
+        $("#loading").attr("src", "../assets/loading.gif?rand=" + Math.random());
+    }   
     setTimeout(() => {
         $('#titlemain').text("FINDING v" + phienban);
     }, 2000);
@@ -96,26 +102,44 @@ $(document).ready(function() {
                 { "data": "tenfile" },               
                 { "data": "duongdan" },
                 { "data": "loai" },  
-                { "data": "ghichu" }, 
                 { 
                     "data": null,
                     render: function(data, type, row) {
                         if (row.duongdan == null || row.duongdan == "") {
                             return "";
                         } else
-                        return "<button id='openFile' data-id='"+row.duongdan+"' class='btn btn-info btn-sm'>Mở</button>";
+                        return "<button id='openFileFolder' data-id='"+row.duongdan+"' class='btn btn-info btn-sm'>Mở thư mực chứa</button>"
+                        + "&nbsp;&nbsp;<button id='openFile' data-id='"+row.duongdan+"' data-tenfile='"+row.tenfile+"' class='btn btn-primary btn-sm'>Mở tập tin</button>";
                     } 
                 },
             ]
         });        
+        $('#dataTable').on('xhr.dt', function (e, settings, json, xhr) {
+            // Sự kiện này được gọi khi DataTable nhận dữ liệu từ server (dù thành công hay lỗi)
+            $("#loading").hide();
+        });
     }, 1000);
     //------------  
 
     $("#findnow").click(function(){
-        let duongdan = $("input[name=duongdan]").val();
-        let vanban = $("input[name=vanban]").val();
-        table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban).load();
+        $("#loading").show();
+         $("#loading").show();
+            let duongdan = $("input[name=duongdan]").val();
+            let vanban = $("input[name=vanban]").val();
+            let phuongthuc = $("select[name=phuongthuc]").val();
+            console.log(phuongthuc);
+            table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc).load();
     });    
+
+    $("input[name=vanban]").keypress(function (e) {
+        if (e.which == 13) {
+            $("#loading").show();
+            let duongdan = $("input[name=duongdan]").val();
+            let vanban = $("input[name=vanban]").val();
+            let phuongthuc = $("select[name=phuongthuc]").val();
+            table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc).load();
+        }
+    });
 
     $("#toFinding").click(function(){
         open('./finding.html','_self');
@@ -125,18 +149,43 @@ $(document).ready(function() {
         window.electronAPI.handleGetPath();
     });   
 
+    $("#btnChonThuMucLuu").click(function() {
+        window.electronAPI.handleGetPathSave();
+    }); 
+
     window.electronAPI.getPathValue((event, value) => {        
         if (value) {
             $('#duongdan').val(value);
         } 
     })
 
-    $(document).on('click','#openFile', function(){
+    window.electronAPI.getPathSaveValue((event, value) => {        
+        if (value) {
+            $('#duongdanluu').val(value);
+        } 
+    })
+
+    $(document).on('click','#openFileFolder', function(){
         const folderPath = $(this).attr('data-id');
         if (folderPath) {
             window.electronAPI.openFolderPath(folderPath);
         }
     });  
+
+    $(document).on('click','#openFile', function(){
+        const folderPath = $(this).attr('data-id');
+        const fileName = $(this).attr('data-tenfile');
+        if (folderPath && fileName) {
+            // Nối đường dẫn file theo kiểu Windows
+            let filePath = folderPath;
+            if (!filePath.endsWith('\\') && !filePath.endsWith('/')) {
+                filePath += '\\';
+            }
+            filePath += fileName;
+            console.log(filePath);
+            window.electronAPI.openFilePath(filePath);
+        }
+    });
 });
 
 

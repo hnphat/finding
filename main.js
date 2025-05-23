@@ -43,6 +43,7 @@ const createWindow = () => {
       appconfig.host = process.env.IPSERVER;    
       appconfig.port = process.env.PORT;  
       appconfig.phienban = process.env.PHIENBAN;
+      appconfig.production = process.env.PRODUCTION;
       win.webContents.send('getBasePath', appconfig);
     })
 
@@ -56,8 +57,24 @@ const createWindow = () => {
       }
       win.webContents.send('getPathValue', ""); 
     });
+
+    ipcMain.handle("getPathSave", async () => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory']
+      });
+      if (!result.canceled && result.filePaths.length > 0) {
+        // console.log(result.filePaths[0]);
+        win.webContents.send('getPathSaveValue', result.filePaths[0]);
+      }
+      win.webContents.send('getPathSaveValue', ""); 
+    });
+
     ipcMain.on('openFolderPath', (event, folderPath) => {
       shell.openPath(folderPath);
+    });  
+
+    ipcMain.on('openFilePath', (event, filePath) => {
+      shell.openPath(filePath);
     });  
 }
 

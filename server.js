@@ -54,10 +54,11 @@ function searchFiles(dir, keyword, results = []) {
 app.get('/system/finding', function(req, res){     
   const duongdan = req.query.duongdan;
   const vanban = req.query.vanban;
+  const phuongthuc = req.query.phuongthuc;  
   if (!duongdan || !vanban) {
       let result = [];
       let obj = {};
-      obj.tenfile = "Vui lòng tìm kiếm";
+      obj.tenfile = "Vui lòng CHỌN thư mục cần tìm và nhập nội dung cần tìm";
       obj.duongdan = "";
       obj.loai = "";
       obj.ghichu = "";
@@ -69,19 +70,41 @@ app.get('/system/finding', function(req, res){
           message: "Không có thông tin đường dẫn hoặc từ khoá tìm kiếm"
       });
   } else {
-    try {
+    if (phuongthuc == "1") {
+      try {
         const foundFiles = searchFiles(duongdan, vanban);
-        setTimeout(() => {
           res.json({
             total: foundFiles.length,
             data: foundFiles,
             code: 200,
             message: "Đã tìm thấy các file"
           });
-        }, 3000);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Đã xảy ra lỗi khi tìm kiếm' });
+          // setTimeout(() => {
+          //   res.json({
+          //     total: foundFiles.length,
+          //     data: foundFiles,
+          //     code: 200,
+          //     message: "Đã tìm thấy các file"
+          //   });
+          // }, 3000);
+      } catch (err) {
+          console.error(err);
+          res.status(500).json({ error: 'Đã xảy ra lỗi khi tìm kiếm' });
+      } 
+    } else {
+      let result = [];
+      let obj = {};
+      obj.tenfile = "Vui lòng tìm kiếm theo tên tập tin";
+      obj.duongdan = "";
+      obj.loai = "";
+      obj.ghichu = "";
+      result.push(obj);
+      res.json({
+          total: 0,
+          data: result,
+          code: 400,
+          message: "Chưa phát triển phương thức tìm kiếm theo nội dung"
+      });
     } 
   }  
 });

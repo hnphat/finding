@@ -4,6 +4,7 @@ $(document).ready(function() {
             sessionStorage.host = value.host + ":" + value.port;            
             sessionStorage.basepath = value.basepath;
             sessionStorage.phienban = value.phienban;
+            sessionStorage.production = value.production;
         }       
     })
     $("#loginbtn").click(function(){
