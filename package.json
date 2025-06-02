@@ -23,7 +23,7 @@
       "!package-lock.json",
       "!server.js",
       "!setup.bat",
-      "!README.md",      
+      "!README.md",
       "!node_modules/**/*",
       "assets",
       "cmd",
@@ -43,7 +43,7 @@
     "postinstall": "electron-builder install-app-deps",
     "dist": "electron-builder"
   },
-  "dependencies": {    
+  "dependencies": {
     "body-parser": "^1.20.2",
     "bootstrap": "^4.6.2",
     "dotenv": "^16.4.5",
@@ -51,6 +51,9 @@
     "electron-squirrel-startup": "^1.0.0",
     "electron-updater": "^6.1.1",
     "express": "^4.18.2",
-    "jquery": "^3.7.0"
+    "fs-extra": "^11.3.0",
+    "jquery": "^3.7.0",
+    "mammoth": "^1.9.1",
+    "pdf-parse": "^1.1.1"
   }
 }

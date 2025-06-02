@@ -102,6 +102,8 @@ $(document).ready(function() {
                 { "data": "tenfile" },               
                 { "data": "duongdan" },
                 { "data": "loai" },  
+                { "data": "ngaytao" },
+                { "data": "trang" },
                 { 
                     "data": null,
                     render: function(data, type, row) {
@@ -117,18 +119,22 @@ $(document).ready(function() {
         $('#dataTable').on('xhr.dt', function (e, settings, json, xhr) {
             // Sự kiện này được gọi khi DataTable nhận dữ liệu từ server (dù thành công hay lỗi)
             $("#loading").hide();
+            if (json && json.message && json.code != 200) {
+                // Hiển thị message ra màn hình, ví dụ dùng alert hoặc modal
+                $("#thongBaoMoi").text(json.message);
+                $("#thongbaoMoiModal").modal('show');
+            }
         });
     }, 1000);
     //------------  
 
     $("#findnow").click(function(){
         $("#loading").show();
-         $("#loading").show();
-            let duongdan = $("input[name=duongdan]").val();
-            let vanban = $("input[name=vanban]").val();
-            let phuongthuc = $("select[name=phuongthuc]").val();
-            console.log(phuongthuc);
-            table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc).load();
+        let duongdan = $("input[name=duongdan]").val();
+        let vanban = $("input[name=vanban]").val();
+        let phuongthuc = $("select[name=phuongthuc]").val();
+        let maxfile = $("input[name=maxfile]").val();
+        table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc + "&maxfile=" + maxfile).load();
     });    
 
     $("input[name=vanban]").keypress(function (e) {
@@ -137,7 +143,8 @@ $(document).ready(function() {
             let duongdan = $("input[name=duongdan]").val();
             let vanban = $("input[name=vanban]").val();
             let phuongthuc = $("select[name=phuongthuc]").val();
-            table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc).load();
+            let maxfile = $("input[name=maxfile]").val();
+            table.ajax.url(host + '/system/finding?duongdan=' + duongdan + "&vanban=" + vanban + "&phuongthuc=" + phuongthuc + "&maxfile=" + maxfile).load();
         }
     });
 
@@ -152,6 +159,44 @@ $(document).ready(function() {
     $("#btnChonThuMucLuu").click(function() {
         window.electronAPI.handleGetPathSave();
     }); 
+
+    $("#savenow").click(function() {
+        let files = table.rows({ search: 'applied' }).data().toArray();
+        let destFolder = $("input[name=duongdanluu]").val() || $("#duongdanluu").val();
+        if (!destFolder) {
+            $("#thongBaoMoi").text("Vui lòng chọn thư mục lưu!");
+            $("#thongbaoMoiModal").modal('show');
+        }
+        if (!files.length) {
+            $("#thongBaoMoi").text("Không có file nào để lưu!");
+            $("#thongbaoMoiModal").modal('show');
+        }
+       
+        $.ajax({
+            url: host + "/system/finding/copy",
+            type: "post",
+            dataType: "json",             
+            data: {
+                files: files,
+                destFolder: destFolder
+            },
+            success: function(response) {     
+                if (response.code == 200) {
+                    console.log(response);
+                    $("#thongBaoMoi").text(response.message);
+                    $("#thongbaoMoiModal").modal('show');
+                } else {
+                    console.log(response);
+                    $("#thongBaoMoi").text(response.message || "Có lỗi xảy ra!");
+                    $("#thongbaoMoiModal").modal('show');
+                }
+            },
+            error: function() {             
+                console.log("Lỗi không xác định");
+                reconnect();
+            }
+        });
+    });
 
     window.electronAPI.getPathValue((event, value) => {        
         if (value) {
