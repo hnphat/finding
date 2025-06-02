@@ -39,10 +39,10 @@
   "pkg": {
     "assets": [
       "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js",
-      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.worker.js",      
+      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.worker.js",
       "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/**/*"
     ],
-    "scripts": [      
+    "scripts": [
       "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js"
     ]
   },
@@ -65,6 +65,8 @@
     "fs-extra": "^11.3.0",
     "jquery": "^3.7.0",
     "mammoth": "^1.9.1",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "pdf2pic": "^3.2.0",
+    "tesseract.js": "^6.0.1"
   }
 }

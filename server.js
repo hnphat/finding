@@ -6,6 +6,11 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const path = require('path');
 var bodyParser = require('body-parser');
+// Đọc OCR
+const { fromPath } = require('pdf2pic');
+const Tesseract = require('tesseract.js');
+const os = require('os');
+// -------------------------
 var app = express();
 app.use(bodyParser.urlencoded({
     extended: true
@@ -54,7 +59,6 @@ async function readFileContent(fullPath, ext) {
 
 
 async function searchFilesByContent(dir, keyword, results = []) {
-    console.log("Keyword:", keyword);
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     const tasks = [];
 
@@ -226,6 +230,58 @@ app.post('/system/finding/copy', async function(req, res) {
         console.error(err);
         return res.json({ code: 500, message: "Có lỗi khi chép tập tin", error: err.message });
     }
+});
+
+// Chỉ tìm được 01 lần 01 file pdf
+app.post('/system/pdf-ocr', async function(req, res) {
+    const pdfPath = req.body.pdfPath;
+    const keyword = req.body.keyword || '';
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
+        return res.status(400).json({ code: 400, message: "Thiếu hoặc sai đường dẫn file PDF" });
+    }
+    // Lấy số trang PDF
+    let numPages = 0;
+    try {
+        const dataBuffer = fs.readFileSync(pdfPath);
+        const pdfData = await pdfParse(dataBuffer);
+        numPages = pdfData.numpages;
+    } catch (err) {
+        return res.status(500).json({ code: 500, message: "Không đọc được số trang PDF" });
+    }
+
+    // Chuyển từng trang PDF thành ảnh và OCR
+    const pdf2pic = fromPath(pdfPath, {
+        density: 150,
+        saveFilename: "page",
+        savePath: os.tmpdir(), // Lưu ảnh tạm vào thư mục tạm hệ thống
+        format: "png"
+    });
+
+    let foundPages = [];
+    let ocrResults = [];
+
+    for (let i = 1; i <= numPages; i++) {
+        try {
+            // Chuyển trang thành ảnh
+            const pageImage = await pdf2pic(i);
+            // OCR nhận diện text từ ảnh
+            const { data: { text } } = await Tesseract.recognize(pageImage.path, 'vie'); // 'vie' cho tiếng Việt, đổi 'eng' nếu chỉ tiếng Anh
+            ocrResults.push({ page: i, text: text.trim() });
+            if (keyword && text.toLowerCase().includes(keyword.toLowerCase())) {
+                foundPages.push(i);
+            }
+            // Xóa ảnh tạm nếu muốn: fs.unlinkSync(pageImage.path);
+        } catch (e) {
+            ocrResults.push({ page: i, text: '', error: e.message });
+        }
+    }
+
+    res.json({
+        code: 200,
+        message: "Đã nhận diện xong PDF bằng OCR",
+        foundPages: foundPages,
+        ocrResults: ocrResults
+    });
 });
 
 
