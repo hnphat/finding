@@ -18,6 +18,8 @@ app.get('/', function(req, res){
         status: 200
     });
 });
+
+app.use(express.static(path.join(__dirname, 'pdf-parse')));
 // ================== FINDING ==================
 function getFileType(fileName) {
     const ext = path.extname(fileName).toLowerCase();
@@ -52,6 +54,7 @@ async function readFileContent(fullPath, ext) {
 
 
 async function searchFilesByContent(dir, keyword, results = []) {
+    console.log("Keyword:", keyword);
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     const tasks = [];
 
@@ -70,6 +73,7 @@ async function searchFilesByContent(dir, keyword, results = []) {
                         try {
                             const content = await readFileContent(fullPath, ext);
                             if (content && content.toLowerCase().includes(keyword.toLowerCase())) {
+                                console.log("Đã tìm thấy nội dung trong file:", fullPath);
                                 const stats = fs.statSync(fullPath);
                                 const created = stats.birthtime;
                                 const createdStr = `${created.getHours().toString().padStart(2, '0')}:${created.getMinutes().toString().padStart(2, '0')}:${created.getSeconds().toString().padStart(2, '0')} ${created.getDate().toString().padStart(2, '0')}/${(created.getMonth()+1).toString().padStart(2, '0')}/${created.getFullYear()}`;
@@ -81,17 +85,9 @@ async function searchFilesByContent(dir, keyword, results = []) {
                                     ngaytao: createdStr,
                                     trang: ""
                                 });
-                              //   results.push({
-                              //     tenfile: entry.name,
-                              //     duongdan: path.dirname(fullPath),
-                              //     loai: getFileType(entry.name),
-                              //     ghichu: "",
-                              //     ngaytao: createdStr,
-                              //     trang: content.foundPages.join(', ') // VD: "2, 5, 7"
-                              // });
                             }                            
                         } catch (e) {
-                            // Bỏ qua file lỗi
+                           console.error("Lỗi đọc file:", fullPath, e);
                         }
                     })()
                 );
@@ -195,11 +191,11 @@ app.get('/system/finding', async function(req, res){
       }
       
       const foundFiles = await searchFilesByContent(duongdan, vanban);
-        res.json({
-          total: foundFiles.length,
-          data: foundFiles,
-          code: 200,
-          message: "Hoàn tất lệnh"
+         res.json({
+            total: foundFiles.length,
+            data: foundFiles,
+            code: 200,
+            message: "Hoàn tất lệnh"
         });
     } else {
       res.json({

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Tìm kiếm chuyên sâu",
   "main": "main.js",
+  "bin": "server.js",
   "author": "Huynh Ngoc Phat",
   "license": "Đội Thuế LH LX-CT-TS",
   "devDependencies": {
@@ -34,6 +35,16 @@
     "win": {
       "icon": "./assets/icon.png"
     }
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js",
+      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.worker.js",      
+      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/**/*"
+    ],
+    "scripts": [      
+      "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js"
+    ]
   },
   "scripts": {
     "start": "electron-forge start",

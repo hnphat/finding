@@ -47,3 +47,21 @@ Tải electron-v24.7.0-win32-x64.zip trên release electron. Tiến hành giải
 npx asar extract app.asar H:\a
 
 # Không chạy file setup.bat nếu dùng electron-builder chỉ sử dụng khi dùng npm run make trong out folder
+
+
+# Export default
+      "!dist/**/*",
+      "!out/**/*",
+      "!package-lock.json",
+      "!server.js",
+      "!setup.bat",
+      "!README.md",
+      "!node_modules/**/*",
+      "assets",
+      "cmd",
+      "server-win.exe",
+      ".env",
+      "logsmain.log"
+
+# Build pkd mới
+pkg . --output server-win
