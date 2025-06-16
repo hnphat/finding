@@ -6,6 +6,15 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const path = require('path');
 var bodyParser = require('body-parser');
+// Đọc OCR
+const { fromPath } = require('pdf2pic');
+const Tesseract = require('tesseract.js');
+const os = require('os');
+// --------------------- New Gemini
+const { execFileSync } = require('child_process'); 
+const Poppler = require('pdf-poppler');
+
+// -------------------------
 var app = express();
 app.use(bodyParser.urlencoded({
     extended: true
@@ -18,6 +27,8 @@ app.get('/', function(req, res){
         status: 200
     });
 });
+
+app.use(express.static(path.join(__dirname, 'pdf-parse')));
 // ================== FINDING ==================
 function getFileType(fileName) {
     const ext = path.extname(fileName).toLowerCase();
@@ -70,6 +81,7 @@ async function searchFilesByContent(dir, keyword, results = []) {
                         try {
                             const content = await readFileContent(fullPath, ext);
                             if (content && content.toLowerCase().includes(keyword.toLowerCase())) {
+                                console.log("Đã tìm thấy nội dung trong file:", fullPath);
                                 const stats = fs.statSync(fullPath);
                                 const created = stats.birthtime;
                                 const createdStr = `${created.getHours().toString().padStart(2, '0')}:${created.getMinutes().toString().padStart(2, '0')}:${created.getSeconds().toString().padStart(2, '0')} ${created.getDate().toString().padStart(2, '0')}/${(created.getMonth()+1).toString().padStart(2, '0')}/${created.getFullYear()}`;
@@ -81,17 +93,9 @@ async function searchFilesByContent(dir, keyword, results = []) {
                                     ngaytao: createdStr,
                                     trang: ""
                                 });
-                              //   results.push({
-                              //     tenfile: entry.name,
-                              //     duongdan: path.dirname(fullPath),
-                              //     loai: getFileType(entry.name),
-                              //     ghichu: "",
-                              //     ngaytao: createdStr,
-                              //     trang: content.foundPages.join(', ') // VD: "2, 5, 7"
-                              // });
                             }                            
                         } catch (e) {
-                            // Bỏ qua file lỗi
+                           console.error("Lỗi đọc file:", fullPath, e);
                         }
                     })()
                 );
@@ -195,11 +199,154 @@ app.get('/system/finding', async function(req, res){
       }
       
       const foundFiles = await searchFilesByContent(duongdan, vanban);
+         res.json({
+            total: foundFiles.length,
+            data: foundFiles,
+            code: 200,
+            message: "Hoàn tất lệnh"
+        });
+    } else if (phuongthuc == "3") {
+        if (!duongdan || !fs.existsSync(duongdan)) {
+            return res.json({ code: 400, message: "Thiếu hoặc sai đường dẫn thư mục" });
+        }
+
+        // Đệ quy lấy danh sách file PDF trong thư mục
+        function getPdfFiles(dir, files = []) {
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        getPdfFiles(fullPath, files);
+                    } else if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.pdf') {
+                        files.push(fullPath);
+                    }
+                }
+            } catch (error) {
+                console.error(`Lỗi khi đọc thư mục ${dir}:`, error.message);
+            }
+            return files;
+        }
+
+        const pdfFiles = getPdfFiles(duongdan);
+        let results = [];
+        const tmpDir = os.tmpdir(); // Lấy thư mục tạm thời của hệ điều hành
+
+        for (const pdfPath of pdfFiles) {
+            let pageImagePath = '';
+            try {
+                const dataBuffer = fs.readFileSync(pdfPath);
+                const pdfData = await pdfParse(dataBuffer);
+                const numPages = pdfData.numpages;
+
+                if (numPages > process.env.SOTRANG) {
+                    console.log(`Bỏ qua file ${pdfPath} vì có hơn 20 trang.`);
+                    continue;
+                }
+
+                const text = pdfData.text || '';
+                const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+                const created = fs.statSync(pdfPath).birthtime;
+                const createdStr = `${created.getHours().toString().padStart(2, '0')}:${created.getMinutes().toString().padStart(2, '0')}:${created.getSeconds().toString().padStart(2, '0')} ${created.getDate().toString().padStart(2, '0')}/${(created.getMonth() + 1).toString().padStart(2, '0')}/${created.getFullYear()}`;
+
+                if (hasVietnamese && text.toLowerCase().includes(vanban.toLowerCase())) {
+                    console.log(`Tìm thấy trong nội dung text PDF cho file: ${pdfPath}`);
+                    results.push({
+                        tenfile: path.basename(pdfPath),
+                        duongdan: path.dirname(pdfPath),
+                        loai: getFileType(pdfPath),
+                        ghichu: "Tìm thấy trong nội dung text PDF",
+                        trang: "text",
+                        ngaytao: createdStr
+                    });
+                    continue;
+                }
+
+                // Nếu không trích xuất được tiếng Việt hoặc không tìm thấy từ khóa, mới dùng OCR
+                console.log(`Không tìm thấy trong nội dung text, bắt đầu OCR cho file: ${pdfPath}`);
+
+                for (let i = 1; i <= numPages; i++) {
+                    // Chuyển từng trang PDF thành ảnh PNG bằng pdf-poppler
+                    const outputDir = tmpDir;
+                    const outPrefix = `page_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                    const opts = {
+                        format: 'png',
+                        out_dir: outputDir,
+                        out_prefix: outPrefix,
+                        page: i,
+                        resolution: 150 // hoặc 100, 150, 200 tùy chất lượng scan
+                    };
+                    try {
+                        await Poppler.convert(pdfPath, opts);
+                        pageImagePath = path.join(outputDir, `${outPrefix}-${i}.png`);
+                        if (!fs.existsSync(pageImagePath)) {
+                            console.error(`Ảnh không tồn tại sau khi tạo: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
+                            continue;
+                        }
+                        const stats = fs.statSync(pageImagePath);
+                        if (stats.size === 0) {
+                            console.error(`Ảnh rỗng: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
+                            fs.unlinkSync(pageImagePath);
+                            continue;
+                        }
+                        if (stats.size > 10 * 1024 * 1024) {
+                            console.error(`Ảnh quá lớn (${(stats.size / (1024 * 1024)).toFixed(2)} MB), bỏ qua trang ${i} của file ${pdfPath}`);
+                            fs.unlinkSync(pageImagePath);
+                            continue;
+                        }
+
+                        console.log(`Bắt đầu OCR trang ${i} của file ${pdfPath}: ${pageImagePath}`);
+
+                        let ocrText = '';
+                        try {
+                            ocrText = execFileSync(
+                                'tesseract',
+                                [pageImagePath, 'stdout', '-l', 'vie'],
+                                { encoding: 'utf8', timeout: 300000 }
+                            );
+                            console.log(`Xong OCR trang ${i} của file ${pdfPath}.`);
+                        } catch (e) {
+                            console.error(`Lỗi gọi tesseract cho trang ${i} của file ${pdfPath}: ${e.message}`);
+                        } finally {
+                            if (fs.existsSync(pageImagePath)) {
+                                fs.unlinkSync(pageImagePath);
+                                console.log(`Đã xóa file ảnh tạm thời: ${pageImagePath}`);
+                            }
+                        }
+
+                        if (ocrText && ocrText.toLowerCase().includes(vanban.toLowerCase())) {
+                            results.push({
+                                tenfile: path.basename(pdfPath),
+                                duongdan: path.dirname(pdfPath),
+                                loai: getFileType(pdfPath),
+                                ghichu: `Tìm thấy qua OCR ở trang ${i}`,
+                                trang: i,
+                                ngaytao: createdStr
+                            });
+                            break; // Đã tìm thấy, không cần kiểm tra các trang còn lại của PDF này
+                        }
+                    } catch (e) {
+                        console.error(`Lỗi chuyển trang PDF sang ảnh hoặc OCR trang ${i} của file ${pdfPath}:`, e);
+                        if (fs.existsSync(pageImagePath)) {
+                            fs.unlinkSync(pageImagePath);
+                            console.log(`Đã xóa file ảnh tạm thời sau lỗi: ${pageImagePath}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(`Lỗi tổng thể khi xử lý file PDF ${pdfPath}:`, e);
+                if (pageImagePath && fs.existsSync(pageImagePath)) {
+                    fs.unlinkSync(pageImagePath);
+                    console.log(`Đã xóa file ảnh tạm thời sau lỗi tổng thể: ${pageImagePath}`);
+                }
+            }
+        }
+
         res.json({
-          total: foundFiles.length,
-          data: foundFiles,
-          code: 200,
-          message: "Hoàn tất lệnh"
+            total: results.length,
+            data: results,
+            code: 200,
+            message: `Đã tìm xong. Có ${results.length} file chứa từ khóa.`
         });
     } else {
       res.json({
@@ -231,7 +378,6 @@ app.post('/system/finding/copy', async function(req, res) {
         return res.json({ code: 500, message: "Có lỗi khi chép tập tin", error: err.message });
     }
 });
-
 
 // -----------------
 // custom 404 page
