@@ -206,6 +206,9 @@ app.get('/system/finding', async function(req, res){
             message: "Hoàn tất lệnh"
         });
     } else if (phuongthuc == "3") {
+        const popplerPath = path.join(__dirname, 'poppler', 'Library','bin');
+        const tesseractPath = path.join(__dirname, 'tesseract', 'tesseract.exe');
+        console.log(`Đường dẫn poppler: ${popplerPath}`);
         if (!duongdan || !fs.existsSync(duongdan)) {
             return res.json({ code: 400, message: "Thiếu hoặc sai đường dẫn thư mục" });
         }
@@ -274,7 +277,8 @@ app.get('/system/finding', async function(req, res){
                         out_dir: outputDir,
                         out_prefix: outPrefix,
                         page: i,
-                        resolution: 150 // hoặc 100, 150, 200 tùy chất lượng scan
+                        resolution: 150, // hoặc 100, 150, 200 tùy chất lượng scan
+                        popplerPath: popplerPath // Đường dẫn đến thư mục chứa poppler
                     };
                     try {
                         await Poppler.convert(pdfPath, opts);
@@ -300,7 +304,7 @@ app.get('/system/finding', async function(req, res){
                         let ocrText = '';
                         try {
                             ocrText = execFileSync(
-                                'tesseract',
+                                tesseractPath,
                                 [pageImagePath, 'stdout', '-l', 'vie'],
                                 { encoding: 'utf8', timeout: 300000 }
                             );
