@@ -142,6 +142,11 @@ function searchFiles(dir, keyword, results = []) {
     return results;
 }
 
+function removeVietnameseTones(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+
 function countFiles(dir) {
     let count = 0;
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -297,25 +302,35 @@ app.get('/system/finding', async function(req, res){
                        // popplerPath: popplerPath // Đường dẫn đến thư mục chứa poppler
                     };
                     try {
-                        await Poppler.convert(pdfPath, opts);
+                        // Xử lý file có dấu tiếng việt
+                        let safePdfPath = pdfPath;
+                        if (/[^\x00-\x7F]/.test(path.basename(pdfPath))) {
+                            const tmpDir = os.tmpdir();
+                            const tmpName = removeVietnameseTones(path.basename(pdfPath)).replace(/\s+/g, '_');
+                            const tmpPath = path.join(tmpDir, tmpName);
+                            fs.copyFileSync(pdfPath, tmpPath);
+                            safePdfPath = tmpPath;                           
+                        }
+                        // -----------------------------------
+                        await Poppler.convert(safePdfPath, opts);
                         pageImagePath = path.join(outputDir, `${outPrefix}-${i}.png`);
                         if (!fs.existsSync(pageImagePath)) {
-                            console.error(`Ảnh không tồn tại sau khi tạo: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
+                           // console.error(`Ảnh không tồn tại sau khi tạo: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
                             continue;
                         }
                         const stats = fs.statSync(pageImagePath);
                         if (stats.size === 0) {
-                            console.error(`Ảnh rỗng: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
+                           // console.error(`Ảnh rỗng: ${pageImagePath}. Bỏ qua trang ${i} của file ${pdfPath}`);
                             fs.unlinkSync(pageImagePath);
                             continue;
                         }
                         if (stats.size > 10 * 1024 * 1024) {
-                            console.error(`Ảnh quá lớn (${(stats.size / (1024 * 1024)).toFixed(2)} MB), bỏ qua trang ${i} của file ${pdfPath}`);
+                          //  console.error(`Ảnh quá lớn (${(stats.size / (1024 * 1024)).toFixed(2)} MB), bỏ qua trang ${i} của file ${pdfPath}`);
                             fs.unlinkSync(pageImagePath);
                             continue;
                         }
 
-                        console.log(`OCR Page ${i}: ${pdfPath}: ${pageImagePath}`);
+                      //  console.log(`OCR Page ${i}: ${pdfPath}: ${pageImagePath}`);
 
                         let ocrText = '';
                         try {
@@ -324,17 +339,18 @@ app.get('/system/finding', async function(req, res){
                                 [pageImagePath, 'stdout', '-l', 'vie'],
                                 { encoding: 'utf8', timeout: 300000 }
                             );
-                            console.log(`OCR Done Page ${i}: ${pdfPath}.`);
+                           // console.log(`OCR Done Page ${i}: ${pdfPath}.`);
                         } catch (e) {
                             console.error(`ERROR CALL tesseract ON PAGE ${i}: ${pdfPath}: ${e.message}`);
                         } finally {
                             if (fs.existsSync(pageImagePath)) {
                                 fs.unlinkSync(pageImagePath);
-                                console.log(`DELETED TEMPLE IMAGE: ${pageImagePath}`);
+                              //  console.log(`DELETED TEMPLE IMAGE: ${pageImagePath}`);
                             }
                         }
 
                         if (ocrText && ocrText.toLowerCase().includes(vanban.toLowerCase())) {
+                            console.log(`Founded content: ${pdfPath}`);
                             results.push({
                                 tenfile: path.basename(pdfPath),
                                 duongdan: path.dirname(pdfPath),
@@ -345,11 +361,17 @@ app.get('/system/finding', async function(req, res){
                             });
                             break; // Đã tìm thấy, không cần kiểm tra các trang còn lại của PDF này
                         }
+
+                        // Xử lý xong thì xóa file tạm nếu đã copy
+                        if (safePdfPath !== pdfPath && fs.existsSync(safePdfPath)) {
+                            fs.unlinkSync(safePdfPath);                           
+                        }
+                        // ----------------------------------------
                     } catch (e) {
                         console.error(`ERROR CONVERT PDF TO IMAGE OR OCR PAGE ${i}: ${pdfPath}:`, e);
                         if (fs.existsSync(pageImagePath)) {
                             fs.unlinkSync(pageImagePath);
-                            console.log(`DELETED TEMPLE IMAGE AFTER ERROR: ${pageImagePath}`);
+                          //  console.log(`DELETED TEMPLE IMAGE AFTER ERROR: ${pageImagePath}`);
                         }
                     }
                 }
@@ -357,7 +379,7 @@ app.get('/system/finding', async function(req, res){
                 console.error(`ERROR CAN NOT HANDLE PDF ${pdfPath}:`, e);
                 if (pageImagePath && fs.existsSync(pageImagePath)) {
                     fs.unlinkSync(pageImagePath);
-                    console.log(`DELETED TEMPLE IMAGE AFTER COMMON ERROR: ${pageImagePath}`);
+                 //   console.log(`DELETED TEMPLE IMAGE AFTER COMMON ERROR: ${pageImagePath}`);
                 }
             }
         }
