@@ -26,8 +26,11 @@
       "!setup.bat",
       "!README.md",
       "!node_modules/**/*",
+      "poppler",
       "assets",
       "cmd",
+      "poppler",
+      "tesseract",
       "server-win.exe",
       "install.rar",
       ".env",
@@ -45,6 +48,9 @@
     ],
     "scripts": [
       "node_modules/pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js"
+    ],
+    "targets": [
+      "node16-win-x64"
     ]
   },
   "scripts": {

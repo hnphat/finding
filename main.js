@@ -3,6 +3,7 @@ const { app, BrowserWindow, globalShortcut, ipcMain, dialog} = require('electron
 const exec = require('child_process').exec;
 const {shell} = require('electron');
 const path = require('path');
+const fs = require('fs');
 //-----------------logger
 // error, warn, info, verbose, debug, silly
 const log = require('electron-log');
@@ -18,6 +19,43 @@ if (process.env.PRODUCTION == 1) {
   log.transports.file.resolvePathFn = () => path.join(__dirname, '/logsmain.log');
 }
 //-------------------------------------
+// Thêm thư mục popler
+if (process.env.PRODUCTION == 1) {  
+    // check if directory exists    
+    let srcPoppler = path.join(__dirname, '..', '..', 'poppler');  
+    let targetDir = path.join("C:/snapshot", "finding", 'node_modules','pdf-poppler');
+    if (fs.existsSync(targetDir)) {
+      // Không thực hiện copy nếu thư mục đã tồn tại
+    } else {
+      let temppath = path.join(__dirname, '..', '..', 'cmd/servercopy.bat');
+      let cmd = "start /min " + temppath + " " + srcPoppler + " " + targetDir;
+      exec(cmd, function(error, stdout, stderr){   
+        if (error) {
+          console.log(error);
+          log.error(error); // error, warn, info, verbose, debug, silly     
+          return;
+        }
+        console.log(stdout.toString());
+        log.info(stdout.toString()); // error, warn, info, verbose, debug, silly     
+      }); 
+    }    
+  } //else {
+    // let tenThuMucUngDung = path.basename(__dirname);
+    // let srcPoppler = path.join(__dirname, 'poppler');
+    // let targetDir = path.join("C:/snapshot", tenThuMucUngDung, 'node_modules');
+    // let temppath = path.join(__dirname, 'cmd/servercopy.bat');
+    //   let cmd = "start /min " + temppath + " " + srcPoppler + " " + targetDir;
+    //     exec(cmd, function(error, stdout, stderr){   
+    //       if (error) {
+    //         console.log(error);
+    //         log.error(error); // error, warn, info, verbose, debug, silly     
+    //         return;
+    //       }
+    //       console.log(stdout.toString());
+    //       log.info(stdout.toString()); // error, warn, info, verbose, debug, silly     
+    //     });
+ //}
+// ----------------------------
 const createWindow = () => {    
     const win = new BrowserWindow({
       show: false,

@@ -6,12 +6,19 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const path = require('path');
 var bodyParser = require('body-parser');
-// Đọc OCR
-const { fromPath } = require('pdf2pic');
-const Tesseract = require('tesseract.js');
 const os = require('os');
 // --------------------- New Gemini
 const { execFileSync } = require('child_process'); 
+// ------------------- Thuc hien truoc khi khoi tao poppler
+let popplerBinDirPath = "";
+if (process.env.PRODUCTION != 1) {
+    // Khi chạy trong môi trường phát triển (npm start/node app.js)
+    // Đây là đường dẫn mặc định nơi pdf-poppler mong đợi tìm thấy binaries
+    popplerBinDirPath = path.join(__dirname, 'node_modules', 'pdf-poppler', 'lib', 'win', 'poppler-0.51', 'bin');
+} 
+process.env.POPPLER_PATH = popplerBinDirPath;
+//console.log(`POPPLER_PATH hiện tại là: ${process.env.POPPLER_PATH}`);
+// ----------------------------
 const Poppler = require('pdf-poppler');
 
 // -------------------------
@@ -28,7 +35,7 @@ app.get('/', function(req, res){
     });
 });
 
-app.use(express.static(path.join(__dirname, 'pdf-parse')));
+// app.use(express.static(path.join(__dirname, 'pdf-parse')));
 // ================== FINDING ==================
 function getFileType(fileName) {
     const ext = path.extname(fileName).toLowerCase();
@@ -81,7 +88,7 @@ async function searchFilesByContent(dir, keyword, results = []) {
                         try {
                             const content = await readFileContent(fullPath, ext);
                             if (content && content.toLowerCase().includes(keyword.toLowerCase())) {
-                                console.log("Đã tìm thấy nội dung trong file:", fullPath);
+                                console.log("Founded: ", fullPath);
                                 const stats = fs.statSync(fullPath);
                                 const created = stats.birthtime;
                                 const createdStr = `${created.getHours().toString().padStart(2, '0')}:${created.getMinutes().toString().padStart(2, '0')}:${created.getSeconds().toString().padStart(2, '0')} ${created.getDate().toString().padStart(2, '0')}/${(created.getMonth()+1).toString().padStart(2, '0')}/${created.getFullYear()}`;
@@ -95,7 +102,7 @@ async function searchFilesByContent(dir, keyword, results = []) {
                                 });
                             }                            
                         } catch (e) {
-                           console.error("Lỗi đọc file:", fullPath, e);
+                           console.error("ERROR READING: ", fullPath, e);
                         }
                     })()
                 );
@@ -149,7 +156,17 @@ function countFiles(dir) {
     return count;
 }
 
-app.get('/system/finding', async function(req, res){     
+app.get('/system/finding', async function(req, res){  
+  // Kiểm tra ngày hết hạn
+    // const today = new Date();
+    // const expireDate = new Date(2026, 1, 1); // Tháng 6 là tháng 7 vì JS đếm từ 0
+    // if (today >= expireDate) {
+    //     return res.json({
+    //         code: 403,
+    //         message: "Error: 0000000x8b201!"
+    //     });
+    // }
+  // ------------------------------     
   const duongdan = req.query.duongdan;
   const vanban = req.query.vanban;
   const phuongthuc = req.query.phuongthuc;  
@@ -194,10 +211,10 @@ app.get('/system/finding', async function(req, res){
       if (totalFiles > MAX_FILES) {
           return res.json({
               code: 413,
-              message: `Thư mục bạn chọn có ${totalFiles} tập tin, vượt quá ngưỡng tối ưu (${MAX_FILES} file). Vui lòng chọn thư mục nhỏ hơn để đảm bảo tốc độ tìm kiếm, hoặc chia nhỏ thư mục.`
+              message: `Thư mục bạn chọn có ${totalFiles} tập tin, vượt quá ngưỡng tối ưu (${MAX_FILES} file). Vui lòng chọn thư mục nhỏ hơn để đảm bảo tốc độ tìm kiếm tránh quá tải tài nguyên hệ thống, hoặc chia nhỏ thư mục.`
           });
       }
-      
+
       const foundFiles = await searchFilesByContent(duongdan, vanban);
          res.json({
             total: foundFiles.length,
@@ -206,9 +223,8 @@ app.get('/system/finding', async function(req, res){
             message: "Hoàn tất lệnh"
         });
     } else if (phuongthuc == "3") {
-        const popplerPath = path.join(__dirname, 'poppler', 'Library','bin');
-        const tesseractPath = path.join(__dirname, 'tesseract', 'tesseract.exe');
-        console.log(`Đường dẫn poppler: ${popplerPath}`);
+        const tesseractPath = path.join(process.cwd(), 'tesseract', 'tesseract.exe');
+
         if (!duongdan || !fs.existsSync(duongdan)) {
             return res.json({ code: 400, message: "Thiếu hoặc sai đường dẫn thư mục" });
         }
@@ -251,9 +267,8 @@ app.get('/system/finding', async function(req, res){
                 const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
                 const created = fs.statSync(pdfPath).birthtime;
                 const createdStr = `${created.getHours().toString().padStart(2, '0')}:${created.getMinutes().toString().padStart(2, '0')}:${created.getSeconds().toString().padStart(2, '0')} ${created.getDate().toString().padStart(2, '0')}/${(created.getMonth() + 1).toString().padStart(2, '0')}/${created.getFullYear()}`;
-
                 if (hasVietnamese && text.toLowerCase().includes(vanban.toLowerCase())) {
-                    console.log(`Tìm thấy trong nội dung text PDF cho file: ${pdfPath}`);
+                    console.log(`Founded content: ${pdfPath}`);
                     results.push({
                         tenfile: path.basename(pdfPath),
                         duongdan: path.dirname(pdfPath),
@@ -266,7 +281,8 @@ app.get('/system/finding', async function(req, res){
                 }
 
                 // Nếu không trích xuất được tiếng Việt hoặc không tìm thấy từ khóa, mới dùng OCR
-                console.log(`Không tìm thấy trong nội dung text, bắt đầu OCR cho file: ${pdfPath}`);
+                //console.log(`Không tìm thấy trong nội dung text, bắt đầu OCR cho file: ${pdfPath}`);
+                console.log(`OCR ....: ${pdfPath}`);
 
                 for (let i = 1; i <= numPages; i++) {
                     // Chuyển từng trang PDF thành ảnh PNG bằng pdf-poppler
@@ -277,8 +293,8 @@ app.get('/system/finding', async function(req, res){
                         out_dir: outputDir,
                         out_prefix: outPrefix,
                         page: i,
-                        resolution: 150, // hoặc 100, 150, 200 tùy chất lượng scan
-                        popplerPath: popplerPath // Đường dẫn đến thư mục chứa poppler
+                        resolution: process.env.RESOLUTION ? process.env.RESOLUTION : 150 // mặc định 150 hoặc 100, 150, 200 tùy chất lượng scan
+                       // popplerPath: popplerPath // Đường dẫn đến thư mục chứa poppler
                     };
                     try {
                         await Poppler.convert(pdfPath, opts);
@@ -299,7 +315,7 @@ app.get('/system/finding', async function(req, res){
                             continue;
                         }
 
-                        console.log(`Bắt đầu OCR trang ${i} của file ${pdfPath}: ${pageImagePath}`);
+                        console.log(`OCR Page ${i}: ${pdfPath}: ${pageImagePath}`);
 
                         let ocrText = '';
                         try {
@@ -308,13 +324,13 @@ app.get('/system/finding', async function(req, res){
                                 [pageImagePath, 'stdout', '-l', 'vie'],
                                 { encoding: 'utf8', timeout: 300000 }
                             );
-                            console.log(`Xong OCR trang ${i} của file ${pdfPath}.`);
+                            console.log(`OCR Done Page ${i}: ${pdfPath}.`);
                         } catch (e) {
-                            console.error(`Lỗi gọi tesseract cho trang ${i} của file ${pdfPath}: ${e.message}`);
+                            console.error(`ERROR CALL tesseract ON PAGE ${i}: ${pdfPath}: ${e.message}`);
                         } finally {
                             if (fs.existsSync(pageImagePath)) {
                                 fs.unlinkSync(pageImagePath);
-                                console.log(`Đã xóa file ảnh tạm thời: ${pageImagePath}`);
+                                console.log(`DELETED TEMPLE IMAGE: ${pageImagePath}`);
                             }
                         }
 
@@ -330,18 +346,18 @@ app.get('/system/finding', async function(req, res){
                             break; // Đã tìm thấy, không cần kiểm tra các trang còn lại của PDF này
                         }
                     } catch (e) {
-                        console.error(`Lỗi chuyển trang PDF sang ảnh hoặc OCR trang ${i} của file ${pdfPath}:`, e);
+                        console.error(`ERROR CONVERT PDF TO IMAGE OR OCR PAGE ${i}: ${pdfPath}:`, e);
                         if (fs.existsSync(pageImagePath)) {
                             fs.unlinkSync(pageImagePath);
-                            console.log(`Đã xóa file ảnh tạm thời sau lỗi: ${pageImagePath}`);
+                            console.log(`DELETED TEMPLE IMAGE AFTER ERROR: ${pageImagePath}`);
                         }
                     }
                 }
             } catch (e) {
-                console.error(`Lỗi tổng thể khi xử lý file PDF ${pdfPath}:`, e);
+                console.error(`ERROR CAN NOT HANDLE PDF ${pdfPath}:`, e);
                 if (pageImagePath && fs.existsSync(pageImagePath)) {
                     fs.unlinkSync(pageImagePath);
-                    console.log(`Đã xóa file ảnh tạm thời sau lỗi tổng thể: ${pageImagePath}`);
+                    console.log(`DELETED TEMPLE IMAGE AFTER COMMON ERROR: ${pageImagePath}`);
                 }
             }
         }
