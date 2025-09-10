@@ -163,14 +163,14 @@ function countFiles(dir) {
 
 app.get('/system/finding', async function(req, res){  
   // Kiểm tra ngày hết hạn
-    // const today = new Date();
-    // const expireDate = new Date(2026, 1, 1); // Tháng 6 là tháng 7 vì JS đếm từ 0
-    // if (today >= expireDate) {
-    //     return res.json({
-    //         code: 403,
-    //         message: "Error: 0000000x8b201!"
-    //     });
-    // }
+    const today = new Date();
+    const expireDate = new Date(2026, 1, 1); // Tháng 6 là tháng 7 vì JS đếm từ 0
+    if (today >= expireDate) {
+        return res.json({
+            code: 403,
+            message: "Error: 0000000x8b201!"
+        });
+    }
   // ------------------------------     
   const duongdan = req.query.duongdan;
   const vanban = req.query.vanban;

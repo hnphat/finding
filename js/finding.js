@@ -110,8 +110,8 @@ $(document).ready(function() {
                         if (row.duongdan == null || row.duongdan == "") {
                             return "";
                         } else
-                        return "<button id='openFileFolder' data-id='"+row.duongdan+"' class='btn btn-info btn-sm'>Mở thư mực chứa</button>"
-                        + "&nbsp;&nbsp;<button id='openFile' data-id='"+row.duongdan+"' data-tenfile='"+row.tenfile+"' class='btn btn-primary btn-sm'>Mở tập tin</button>";
+                        return "<button id='openFileFolder' data-id='"+row.duongdan+"' class='btn btn-info btn-sm'>Mở thư mục chứa</button>"
+                        + "&nbsp;&nbsp;<button id='openFile' data-id='"+row.duongdan+"' data-tenfile='"+row.tenfile+"' class='btn btn-primary btn-sm'>Mở tệp tin</button>";
                     } 
                 },
             ]
